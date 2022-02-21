@@ -269,6 +269,7 @@ class GlicolEngine extends AudioWorkletProcessor {
                 this.port.postMessage({type: 'ready'})
 
             } else if (e.data.type === "samples") {
+                console.log('samples')
                 if(this._wasm) {
                 // console.log("sample data: ", e.data.sample)
                 // console.log(e.data.name)
@@ -309,6 +310,7 @@ class GlicolEngine extends AudioWorkletProcessor {
             } else if (e.data.type === "amp") {
                 this._wasm.exports.set_track_amp(e.data.value);
             } else if (e.data.type === "run") {
+                console.log('run')
                 
                 // the code as Uint8 to parse; e.data.value == the code
                 this.code = e.data.value;

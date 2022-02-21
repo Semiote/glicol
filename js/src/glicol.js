@@ -1,6 +1,6 @@
 // when publish, change the exact version number
 // in local testing, comment the version out!
-window.version = "v0.8.13"
+// window.version = "v0.8.13"
 const source = window.version ? `https://cdn.jsdelivr.net/gh/chaosprint/glicol@${version}/js/src/` : "src/"
 
 window.loadDocs = async () => {
@@ -641,9 +641,9 @@ window.loadModule = async () => {
       // log(`\n\n%c Useful console commands: `, "background: black; color:white; font-weight: bold")
       log(
 `
-type %ch()%c in console to see some useful commands.
+call %ch()%c in console to see some useful commands.
 
-%cpanic?%c don't panic. %cissue it here: %chttps://github.com/chaosprint/glicol/issues/new
+%cpanic?%c don't panic. %creport it here: %chttps://github.com/chaosprint/glicol/issues/new
 `,
       "font-weight: bold; color: green",
       "",
@@ -770,38 +770,137 @@ window.updateCode = (code) => {
   };
 }
 
+window.AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+
+let process_code = async (toreplace) => {
+  toreplace.map( async (str)=>{
+    console.log('str', str)
+    let isMultiLine = str.includes('\n') || str.includes(';')
+    if (isMultiLine) {
+      Function(`return async ()=>{${str}}`)()().then(result=> {
+        log("res 1", result);
+        if (typeof result === "undefined") {
+          code = code.replace(`#/${str}/#`, "")
+        } else {
+          code = code.replace(`#/${str}/#`, result)
+        }
+        window.code = code
+      })
+    } else {
+      Function(`return async ()=>(${str})`)()().then(result=> {
+        log("res 2", result);
+        if (typeof result === "undefined") {
+          code = code.replace(`#/${str}/#`, "")
+        } else {
+          code = code.replace(`#/${str}/#`, result)
+        }
+        window.code = code
+      })
+    } 
+  })
+}
+window.promises = []
+window.result = []
+window.toreplace = []
 window.run = async (code) =>{
 
-  // const regexp = /\{([^{}]|(\?R))*\}/g
-
-  // a working JS mix
-  
-  const regexp = /(?<=\{\{)[^}]*(?=\}\})/g   // this is working but not for nested
+  const regexp = /(?<=#\/)[^#]*(?=\/#)/g
   let match;
-  let toreplace = [];
+
   while ((match = regexp.exec(code)) !== null) {
-    toreplace.push(match[0])
+    window.toreplace.push(match[0])
   }
-  toreplace.map((str)=>{
 
-    let result = str.includes('\n') || str.includes(';') ?
-    Function(`'use strict'; return ()=>{${str}}`)()() : 
-    Function(`'use strict'; return ()=>(${str})`)()()
-
-    if (typeof result !== "undefined") {
-      code = code.replace(`{{${str}}}`, result)
+  if (toreplace.length === 0) {
+    if (!window.isGlicolRunning) {
+      window.runCode(code)
     } else {
-      code = code.replace(`{{${str}}}`, "")
+      window.updateCode(code)
+    }
+  } else {
+    // await process_code(toreplace)
+
+    window.toreplace.map( async (str)=>{
+      console.log('str', str)
+      let isMultiLine = str.includes('\n') || str.includes(';')
+      if (isMultiLine) {
+        window.promises.push(Function(`return async ()=>{${str}}`)()())
+        
+        // .then(result=> {
+        //   log("res 1", result);
+        //   if (typeof result === "undefined") {
+        //     code = code.replace(`#/${str}/#`, "")
+        //   } else {
+        //     code = code.replace(`#/${str}/#`, result)
+        //   }
+        //   window.code = code
+        // }
+      } else {
+        window.promises.push(Function(`return async ()=>(${str})`)()())
+        
+        // .then(result=> {
+        //   log("res 2", result);
+        //   if (typeof result === "undefined") {
+        //     code = code.replace(`#/${str}/#`, "")
+        //   } else {
+        //     code = code.replace(`#/${str}/#`, result)
+        //   }
+        //   window.code = code
+        // })
+      }
+    })
+  }
+  await Promise.all(window.promises).then(re=> {
+      log("res 1", re);
+      window.result.push(re)
+  }).then(()=>{
+    window.result.forEach((item, index) => {
+      if (typeof item === "undefined") {
+        code = code.replace(`#/${window.toreplace[index]}/#`, "")
+      } else {
+        code = code.replace(`#/${window.toreplace[index]}/#`, result)
+      }
+    })
+  }).then(()=>{
+    window.code = code
+    if (!window.isGlicolRunning) {
+      window.runCode(code)
+    } else {
+      window.updateCode(code)
     }
   })
+  // await Promise.all(window.promises).map( promise=>{
+  //   promise().then(result=> {
+  //       log("res 1", result);
+  //       if (typeof result === "undefined") {
+  //         code = code.replace(`#/${str}/#`, "")
+  //       } else {
+  //         code = code.replace(`#/${str}/#`, result)
+  //       }
+  //       window.code = code
+  //   })
+  // }))
 
 
-  window.code = code
-  if (!window.isGlicolRunning) {
-    window.runCode(code)
-  } else {
-    window.updateCode(code)
-  }
+  
+
+    // if (!window.isGlicolRunning) {
+    //   window.runCode(code)
+    // } else {
+    //   window.updateCode(code)
+    // }
+    
+    // : Function(`return async ()=>(${str})`)()().then(result=> {log(result); return result})
+    // log('result', result, typeof result)
+
+    // if (result !== 'undefined') {
+    //   code = code.replace(`#/${str}/#`, result)
+    // } else {
+    //   code = code.replace(`#/${str}/#`, "")
+    // }
+  // })
+
+
 
   if ( document.getElementById("visualizer")) {
     window.visualizeTimeDomainData({canvas: document.getElementById("visualizer"), analyser: window.analyser});
